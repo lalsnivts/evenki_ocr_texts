@@ -7,7 +7,8 @@ import shutil
 import time
 
 
-TESSERACT_FOLDER = 'D:\\OCR\\tesseract-3.05.00dev-win32-vc19'
+TESSERACT_FOLDER = '/home/gisly/evenki_tesseract'
+TESSDATA_FOLDER = '/home/gisly/tesseract/tesseract/'
 TESSERACT_FILENAMES = ['unicharset', 'inttemp', 'normproto', 'pffmtable']
 
 COMMAND_CREATE_IMAGE = "text2image --text=\"%(FILENAME)s\" "\
@@ -15,13 +16,13 @@ COMMAND_CREATE_IMAGE = "text2image --text=\"%(FILENAME)s\" "\
                         "--font=%(FONT_NAME)s --fonts_dir=\"%(FONT_DIR)s\""
 
 COMMAND_CREATE_BOX = "tesseract \"%(FOLDER)s/%(LANGUAGE)s.%(FONT_NAME)s.exp%(INDEX)s\".tif "\
-                      "\"%(FOLDER)s/%(LANGUAGE)s.%(FONT_NAME)s.exp%(INDEX)s\" tessdata\\configs\\box.train"
+                      "\"%(FOLDER)s/%(LANGUAGE)s.%(FONT_NAME)s.exp%(INDEX)s\" %(TESSDATA_FOLDER)s/tessdata/configs/box.train"
 #TODO: unicharset file?                     
 COMMAND_EXTRACT_UNICHAR = "unicharset_extractor %(BOX_FILES)s"
 COMMAND_UNICHAR_PROPS = "set_unicharset_properties -U  \"%(TESSERACT_FOLDER)s/unicharset\" "\
                         "-O \"%(FOLDER)s/output_unicharset\" --script_dir=training/langdata"
                         
-COMMAND_MFTRAINING = "mftraining -F font_properties -U \"%(FOLDER)s/output_unicharset\" "\
+COMMAND_MFTRAINING = "mftraining -F %(TESSERACT_FOLDER)s/font_properties -U \"%(FOLDER)s/output_unicharset\" "\
                     "-O \"%(FOLDER)s/%(LANGUAGE)s.unicharset\" %(TR_FILES)s"
                     
 COMMAND_CNTRAINING = "cntraining %(TR_FILES)s"
@@ -40,7 +41,7 @@ def process_training_data(training_folder, output_folder, language, font_name, f
     time.sleep(10)
     
     process_box_files(box_files, tr_files, output_folder, language, font_name, font_dir)
-    time.sleep(10)
+    time.sleep(20)
     
     collect_training_data(output_folder, language)
 
@@ -123,13 +124,14 @@ def process_box_files(box_files, tr_files, output_folder, language, font_name, f
 def process_tesseract_command_str(command_list, filename, output_folder, 
                                                    language, font_name, example_index, font_dir,
                                                    box_files = None, tr_files = None):
-    move_to_dir = "pushd " + TESSERACT_FOLDER
+    move_to_dir = "cd " + TESSERACT_FOLDER
     command_list_tesseract = [move_to_dir] + command_list
-    command_str = '&'.join([replace_properties(command, filename, output_folder, 
+    command_str = [replace_properties(command, filename, output_folder,
                                                    language, font_name, example_index, font_dir, box_files, tr_files) 
-                                for command in command_list_tesseract])
-    print(command_str)
-    res = subprocess.check_output(command_str, shell=True).decode('cp1251')
+                                for command in command_list_tesseract]
+    for command_str_element in command_str:
+        print(command_str_element)
+        res = subprocess.check_output(move_to_dir + '&' + command_str_element, shell=True).decode('cp1251')
     return res
     
 def replace_properties(command, filename, output_folder, language, 
@@ -143,7 +145,8 @@ def replace_properties(command, filename, output_folder, language,
                                                 'FONT_DIR' :font_dir,
                                                 'TESSERACT_FOLDER' : TESSERACT_FOLDER,
                                                 'BOX_FILES' : box_files,
-                                                'TR_FILES' : tr_files }
+                                                'TR_FILES' : tr_files,
+                                                'TESSDATA_FOLDER': TESSDATA_FOLDER}
     
 def is_text_file(filename):
     return filename.endswith(EXTENSION_TEXT)
@@ -163,10 +166,11 @@ def delete_existing_tesseract_files(folder, prefix = ''):
             os.remove(full_filename)
 
 def copy_file_from_folder_to_folder(filename, from_folder, to_folder, prefix = ''):
+    print('copying:%s' % os.path.join(from_folder, filename))
     shutil.copy(os.path.join(from_folder, filename), os.path.join(to_folder, prefix + filename))
     
     
-process_training_data('C:\\Users\\User\\Documents\\Aptana Studio 3 Workspace\\lals_ocr_utils\\resources\\test1_2', 
-                     'C:\\Users\\User\\Documents\\Aptana Studio 3 Workspace\\lals_ocr_utils\\resources\\test1_2', 
+process_training_data('/home/gisly/evenki_tesseract/training/input',
+                     '/home/gisly/evenki_tesseract/training/output',
                      'evk', 
-                     'Arial', 'C:\\Windows\\Fonts')
+                     'FreeMono', '/usr/share/fonts')
