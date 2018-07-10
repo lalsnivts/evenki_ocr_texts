@@ -9,9 +9,8 @@ import time
 import argparse
 import logging
 
-
-#TESSERACT_FOLDER = '/home/gisly/evenki_tesseract'
-#TESSDATA_FOLDER = '/home/gisly/tesseract-ocr/tessdata/tesseract/'
+# TESSERACT_FOLDER = '/home/gisly/evenki_tesseract'
+# TESSDATA_FOLDER = '/home/gisly/tesseract-ocr/tessdata/tesseract/'
 
 TESSERACT_FILENAMES = ['unicharset', 'inttemp', 'normproto', 'pffmtable']
 
@@ -31,21 +30,28 @@ COMMAND_MFTRAINING = "mftraining -F %(TESSERACT_FOLDER)s/font_properties -U \"%(
 
 COMMAND_CNTRAINING = "cntraining %(TR_FILES)s"
 
-COMMAND_COMBINE_TESSDATA = "combine_tessdata \"%(FOLDER)s/%(LANGUAGE)s.\""
+COMMAND_COMBINE_TESSDATA = "combine_tessdata \"%(LANGUAGE)s.\""
 
 EXTENSION_TEXT = '.txt'
 
+MODE_TRAIN_ONLY = 1
+MODE_BOX_ONLY = 2
+MODE_ALL = 3
+
 
 def process_training_data(training_folder, output_folder, language, font_name, font_dir, tessdata_folder,
+                          mode,
                           is_verbose=False):
     create_necessary_folders(output_folder, is_verbose)
-    #delete_existing_tesseract_files(training_folder, language, is_verbose)
-    box_files, tr_files = process_training_files(training_folder, output_folder,
-                                                 language, font_name, font_dir, tessdata_folder, is_verbose)
-    time.sleep(2)
+    if mode != MODE_TRAIN_ONLY:
+        # delete_existing_tesseract_files(training_folder, language, is_verbose)
+        box_files, tr_files = process_training_files(training_folder, output_folder,
+                                                     language, font_name, font_dir, tessdata_folder, is_verbose)
 
-    process_box_files(training_folder, box_files, tr_files, output_folder, language, font_name, font_dir, tessdata_folder, is_verbose)
-    time.sleep(20)
+    if mode != MODE_BOX_ONLY:
+        process_box_files(training_folder, box_files, tr_files, output_folder, language, font_name, font_dir,
+                          tessdata_folder, is_verbose)
+        time.sleep(20)
 
     collect_training_data(training_folder, output_folder, language, is_verbose)
 
@@ -101,26 +107,30 @@ def process_training_text(training_folder, filename, output_folder, language,
 
 
 def collect_training_data(training_folder, output_folder, language, is_verbose=False):
-    prepare_files(training_folder, output_folder, language)
-    command_list = [COMMAND_COMBINE_TESSDATA]
+    previous_dir = os.getcwd()
+    try:
+        prepare_files(output_folder, language)
+        os.chdir(os.path.join(output_folder, language))
+        command_list = [COMMAND_COMBINE_TESSDATA]
 
-    res = process_tesseract_command_str(training_folder,
-                                        command_list, '', output_folder, language, '', 0, '',
-                                        is_verbose=is_verbose)
-    if is_verbose:
+        res = process_tesseract_command_str(training_folder,
+                                            command_list, '', output_folder, language, '', 0, '',
+                                            tessdata_folder='',
+                                            box_files=None,
+                                            is_verbose=is_verbose)
         logging.info("collect_training_data:%s", res)
+    finally:
+        os.chdir(previous_dir)
 
 
-def prepare_files(training_folder, output_folder, language):
-    copy_tesseract_files(training_folder, output_folder, language)
+def prepare_files(output_folder, language):
+    copy_tesseract_files(output_folder, language)
 
 
-def copy_tesseract_files(training_folder, output_folder, language):
+def copy_tesseract_files(output_folder, language):
     output_language_folder = create_necessary_folders(os.path.join(output_folder, language))
     for filename in TESSERACT_FILENAMES:
-        if filename == 'unicharset':
-            filename = language + '.' + filename
-        copy_file_from_folder_to_folder(filename, training_folder, output_language_folder, language + '.')
+        copy_file_from_folder_to_folder(filename, './', output_language_folder, language + '.')
 
 
 # TODO: MFTRAINING???
@@ -209,6 +219,7 @@ def delete_existing_tesseract_files(folder, language_name=None, is_verbose=False
             os.remove(full_filename)
             logging.info("Removing folder %s " % full_filename)
 
+
 def check_file_exists(filename):
     """
     checking if a file with a given name exists
@@ -217,6 +228,7 @@ def check_file_exists(filename):
     """
     if not os.path.exists(filename):
         raise Exception("File %s does not exist" % filename)
+
 
 def create_necessary_folders(folder_name, is_verbose=False):
     """
@@ -231,6 +243,7 @@ def create_necessary_folders(folder_name, is_verbose=False):
             logging.info("created output folder: %s" % folder_name)
     return folder_name
 
+
 def copy_file_from_folder_to_folder(filename, from_folder, to_folder, prefix='', is_verbose=False):
     """
     copying a file from one folder to another, perhaps with a prefix
@@ -243,10 +256,13 @@ def copy_file_from_folder_to_folder(filename, from_folder, to_folder, prefix='',
     """
     shutil.copy(os.path.join(from_folder, filename), os.path.join(to_folder, prefix + filename))
     if is_verbose:
-        logging.info('copied:%s to %s' % (os.path.join(from_folder, filename), os.path.hoin(to_folder, prefix + filename)))
+        logging.info(
+            'copied:%s to %s' % (os.path.join(from_folder, filename), os.path.hoin(to_folder, prefix + filename)))
+
 
 def is_generated_file(filename):
     return filename.endswith('.box') or filename.endswith('.tr') or filename.endswith('.tif')
+
 
 def main():
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
@@ -264,6 +280,8 @@ def main():
                         help="font folder")
     parser.add_argument("tessdata_folder",
                         help="tessdata folder")
+    parser.add_argument("mode",
+                        help="mode: 1 to generate box files, 2 to train, 3 to generate and combine")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="increase output verbosity")
 
@@ -275,6 +293,7 @@ def main():
     font_name = args.font_name
     font_folder = args.font_folder
     tessdata_folder = args.tessdata_folder
+    mode = args.mode
     is_verbose = args.verbose
 
     check_file_exists(input_folder)
@@ -282,6 +301,7 @@ def main():
     check_file_exists(os.path.join(input_folder, "font_properties"))
 
     process_training_data(input_folder, output_folder, language, font_name, font_folder, tessdata_folder,
+                          mode,
                           is_verbose)
 
 
