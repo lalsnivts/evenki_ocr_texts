@@ -1,8 +1,9 @@
 import os
 import xml.etree.ElementTree as ET
 import sys
+import logging
 
-# master1_1.py all_files 2 all_words.txt
+# corpus_parser.py eaf 1 all_words.txt
 
 
 def check_params(args):
@@ -85,18 +86,26 @@ def main():
 
     check_params(sys.argv)
 
+    logging.basicConfig(filename="logfile.log", level=logging.ERROR)
+
     the_final_dict = {}
 
     for filename in os.listdir(sys.argv[1]):
-        for key, value in get_all_info(filename).items():
-            if key not in the_final_dict:
-                key = check(key)
-                the_final_dict[key] = set()
-                the_final_dict[key].update(value)
-            else:
-                the_final_dict[key].update(value)
+        try:
+            for key, value in get_all_info(filename).items():
+                if key not in the_final_dict:
+                    key = check(key)
+                    the_final_dict[key] = set()
+                    the_final_dict[key].update(value)
+                else:
+                    the_final_dict[key].update(value)
+        except Exception:
+            logging.exception("Error occurred in file {}".format(filename),
+                              exc_info=True)
+
     ww = '[оговорка],unkn'
     the_final_dict.pop(ww, None)
+
     with open(sys.argv[3], 'w', encoding="utf-8") as t_file:
         for word in sorted(the_final_dict):
             t_line = word.split(',')[0]+'\t'+word.split(',')[1]+'\t'+str(','.join(list(the_final_dict[word])))
@@ -105,7 +114,7 @@ def main():
 
     with open('polysemy_roots.txt', 'w', encoding="utf-8") as gl_file:
         for key, value in the_final_dict.items():
-            if len(value) >= int(sys.argv[2]):
+            if len(value) > int(sys.argv[2]):
                 gl_file.write(key.split(',')[0])
                 gl_file.write('\n')
 
