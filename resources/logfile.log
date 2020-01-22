@@ -1,0 +1,14 @@
+ERROR:root:Error occurred in file 2011_Hantayskoye_Ozero_0Chempogir_AD_Utukogir_LDFM.eaf
+Traceback (most recent call last):
+  File "master1_1.py", line 95, in main
+    for key, value in get_all_info(filename).items():
+  File "master1_1.py", line 47, in get_all_info
+    fons.append(parts[0])
+IndexError: list index out of range
+ERROR:root:Error occurred in file 2011_Hantayskoye_Ozero_0Chempogir_AD_Utukogir_LDFM.eaf
+Traceback (most recent call last):
+  File "corpus_parser.py", line 95, in main
+    for key, value in get_all_info(filename).items():
+  File "corpus_parser.py", line 47, in get_all_info
+    fons.append(parts[0])
+IndexError: list index out of range
