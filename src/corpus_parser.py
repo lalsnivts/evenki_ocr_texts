@@ -68,9 +68,11 @@ def get_all_info(filename):
         fon_type = fons[i] + ',' + types[i]
         if fon_type not in the_dict:
             the_dict[fon_type] = set()
-            the_dict[fon_type].add(gls[i])
+            if 'SLIP' not in gls[i].upper():
+                the_dict[fon_type].add(gls[i])
         else:
-            the_dict[fon_type].add(gls[i])
+            if 'SLIP' not in gls[i].upper():
+                the_dict[fon_type].add(gls[i])
             
     return the_dict
 
