@@ -1,7 +1,7 @@
 import sys
 import logging
 
-# python all_words.txt 0
+# python transliteration.py all_words.txt 0
 
 vowels = {'а̄':'ā', 'ō':'ō', 'ē':'ē', 'ū':'ū', 'ī':'ī', 'ə̄':'ə', 'ә̄':'ə'}
 
