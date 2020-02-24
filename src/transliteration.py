@@ -1,6 +1,8 @@
 import sys
 import logging
 
+# python all_words.txt 0
+
 vowels = {'а̄':'ā', 'ō':'ō', 'ē':'ē', 'ū':'ū', 'ī':'ī', 'ə̄':'ə', 'ә̄':'ə'}
 
 equiv = {'a':'а', '\'':'ь', '’':'ь', 'b':'б', 'v':'в', 'g':'г', 'd':'д',
@@ -14,7 +16,8 @@ equiv = {'a':'а', '\'':'ь', '’':'ь', 'b':'б', 'v':'в', 'g':'г', 'd':'д'
 
 pairs = {'шь':'щ', 'ьа':'я', 'ьо':'ё', 'ьэ':'е', 'ьу':'ю', 'ьы':'и',
          'ьи':'и', 'ье':'е', 'йу':'ю', 'йо':'ё', 'йэ':'е',
-         'йа':'я', 'тс':'ц', 'йы':'и'}
+         'йа':'я', 'тс':'ц', 'йы':'и', 'йā':'я̄', 'ьā':'я̄', 'йō':'ё',
+         'ьō':'ё', 'йӯ':'ю̄', 'ьӯ':'ю̄', 'йē':'ē', 'ьē':'ē'}
 
 
 def check_params(args):
@@ -26,21 +29,15 @@ def check_params(args):
 
 
 def transliteration(word: str) -> str:
-    for vowel in vowels.keys():
-        if vowel in word:
-            word = word[:word.find(vowel)] + vowels[vowel] + word[word.find(
-                vowel)+2:]
+    for key in vowels.keys():
+        word = word.replace(key, vowels[key])
     if word.startswith('e'):
         word = 'ә' + word[1:]
-    new_word = ''
-    for letter in word:
-        kir_letter = equiv[letter]
-        new_word += kir_letter
+    for key in equiv.keys():
+        word = word.replace(key, equiv[key])
     for key in pairs.keys():
-        while key in new_word:
-            new_word = new_word[0:new_word.find(key)] + pairs[key] + \
-                       new_word[new_word.find(key)+2:]
-    return new_word
+        word = word.replace(key, pairs[key])
+    return word
 
 
 def realisation(filename):
