@@ -18,10 +18,11 @@ def check_params(args):
 num = ['<sg>','<pl>']
 case = ['<nom>','<acc>','<ins>','<datloc>','<locall>','<all>',
         '<prl>','<locdir>','<allprl>','<abl>','<ela>']
+defin = ['<def>', '<ind>']
 poss = ['<px1sg>','<px2sg>','<px3sg>','<px1pe>','<px1pi>',
         '<px2pl>','<px3pl>']
 
-tense = ['<pres>','<nfut>','<nfut-irreg>','<past>','<past-iter>',
+tense = ['<pres>','<nfut>','<past>','<past-iter>',
          '<fut>','<futcnt>','<futnear>']
 person = ['<p1>', '<p2>', '<p3>']
 
@@ -52,22 +53,40 @@ def generate_result(input_file, result_file):
                 for n in num:
                     for c in case:
                         for p in poss + ['']:
-                            gloss = stem + '<n>' + n + c + p
-                            wf = transducer_gen.lookup(gloss)
-                            if wf != ():
-                                list_of_wf.append(wf[0][0])
+                            if c == '<acc>':
+                                for d in defin:
+                                    gloss = stem + '<n>' + n + c + d + p
+                                    wf = transducer_gen.lookup(gloss)
+                                    if wf != ():
+                                        list_of_wf.append(wf[0][0])
+                                    else:
+                                        errors.append(gloss)
                             else:
-                                errors.append(gloss)
+                                gloss = stem + '<n>' + n + c + p
+                                wf = transducer_gen.lookup(gloss)
+                                if wf != ():
+                                    list_of_wf.append(wf[0][0])
+                                else:
+                                    errors.append(gloss)
             elif pos == 'v':
                 for t in tense:
                     for p in person:
-                        for n in num:
-                            gloss = stem + '<v>' + t + p + n
-                            wf = transducer_gen.lookup(gloss)
-                            if wf != ():
-                                list_of_wf.append(wf[0][0])
-                            else:
-                                errors.append(gloss)
+                        if p == '<p1>':
+                            for n in ['<sg>', '<pi>', '<pe>'] :
+                                gloss = stem + '<v>' + t + p + n
+                                wf = transducer_gen.lookup(gloss)
+                                if wf != ():
+                                    list_of_wf.append(wf[0][0])
+                                else:
+                                    errors.append(gloss)
+                        else:
+                            for n in num:
+                                gloss = stem + '<v>' + t + p + n
+                                wf = transducer_gen.lookup(gloss)
+                                if wf != ():
+                                    list_of_wf.append(wf[0][0])
+                                else:
+                                    errors.append(gloss)
                 for i in imp:
                     gloss = stem + '<v>' + i
                     wf = transducer_gen.lookup(gloss)
