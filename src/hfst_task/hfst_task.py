@@ -5,6 +5,8 @@ import configparser
 import os
 
 def check_params(args):
+    if len(args) < 3:
+        raise ValueError('Проверьте, что указали все необходимые файлы.')
     if not args[1].endswith('.txt'):
         raise ValueError('Проверьте, что ввели корректное имя входного файла ('
                          'расширение .txt)')
