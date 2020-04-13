@@ -7,6 +7,8 @@ import json
 from datetime import datetime
 from itertools import islice
 
+MAX_NUM = 15000
+
 
 def check_params(args):
     if len(args) < 3:
@@ -86,8 +88,16 @@ def parsing(BATCH_SIZE, dsl_dict, short, dialect):
         if q % 100 == 0:
             print(q, datetime.now())
 
+        if q == MAX_NUM:
+            break
+
         s = ' '.join([w.strip() for w in dsl_dict[idx_word[q]+1:idx_word[q+1]]])
-        s = re.search('\[.*?\].*?\[.*?\](.*?)\[.*?\]', s).group(1)
+        if s is None:
+            s = ''
+        re_search = re.search('\[.*?\].*?\[.*?\](.*?)\[.*?\]', s)
+        if re_search is None:
+            continue
+        s = re_search.group(1)
         s_list = s.split(' ')
         start = 0
         end = 0
@@ -148,7 +158,7 @@ def parsing(BATCH_SIZE, dsl_dict, short, dialect):
         if info.endswith('.'):
             info = info.split('.')[0]
 
-        infos.append(info.strip())
+        infos.append(re.split('[-\s\(\),\.\?̄\'!]', info.strip())[0])
 
         if 'межд.' in s_list:
             pos = 'ij'
@@ -156,7 +166,7 @@ def parsing(BATCH_SIZE, dsl_dict, short, dialect):
             if words[len(infos)-1].endswith('-мӣ'):
                 pos = 'v'
             else:
-                pos = detect_pos(m, info)
+                pos = "nothing"
         pos_list.append(pos)
 
     final_list = []
@@ -165,16 +175,22 @@ def parsing(BATCH_SIZE, dsl_dict, short, dialect):
         if pos_list[j] == "nothing":
             work_list.append(j)
     work_list = list(chunk(work_list, BATCH_SIZE))
-    for el in work_list:
+    for el_index, el in enumerate(work_list):
         text = []
         for q in el:
             text.append(infos[q].split(' ')[0])
-        pos_l = detect_pos(m, ' '.join(text))
+        text_joined = ' '.join(text)
+        pos_l = detect_pos(m, text_joined)
+        print(el_index, text_joined, pos_l, len(el), len(pos_l))
         for p in range(len(pos_l)):
             pos_list[el[p]] = pos_l[p]
 
-    for i in range(len(words)-1):
+    print('pos_processed', datetime.now())
+
+    print(len(words), len(infos), len(pos_list))
+    for i in range(0, min(len(words)-1, MAX_NUM)):
         final_list.append(words[i] + '\t' + infos[i] + '\t' + pos_list[i])
+
 
     return final_list
 
@@ -187,7 +203,7 @@ def saving(final_list, filename):
 
 def main():
 
-    BATCH_SIZE = 20
+    BATCH_SIZE = 500
 
     check_params(sys.argv)
 
