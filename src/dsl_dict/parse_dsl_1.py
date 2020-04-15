@@ -8,6 +8,7 @@ from datetime import datetime
 from itertools import islice
 
 MAX_NUM = 15000
+BATCH_SIZE = 500
 
 
 def check_params(args):
@@ -44,7 +45,7 @@ def files(input_dict):
 def detect_pos(m, string):
     data = json.dumps(m.analyze(string), ensure_ascii=False)
     data = json.loads(data)
-    pos_l = []
+    pos_l = [] 
     for i in range(0, len(data), 2):
         try:
             pos = data[i]['analysis'][0]['gr']
@@ -56,13 +57,21 @@ def detect_pos(m, string):
                 pos_l.append('adj')
             elif pos.startswith('PART'):
                 pos_l.append('ij')
+            elif pos.startswith('NUM'):
+                pos_l.append('num')
+            elif pos.startswith('CONJ'):
+                pos_l.append('conj')
+            elif pos.startswith('INTJ'):
+                pos_l.append('ij')
+            else:
+                pos_l.append('unkn')
         except:
             pos_l.append('unkn')
 
     return pos_l
 
 
-def parsing(BATCH_SIZE, dsl_dict, short, dialect):
+def parsing(dsl_dict, short, dialect):
 
     m = pymystem3.Mystem()
 
@@ -85,23 +94,35 @@ def parsing(BATCH_SIZE, dsl_dict, short, dialect):
     print('Кол-во слов:', len(words))
     for q in range(len(idx_word)-1):
 
-        if q % 100 == 0:
+        if q % 1000 == 0:
             print(q, datetime.now())
 
         if q == MAX_NUM:
             break
-
         s = ' '.join([w.strip() for w in dsl_dict[idx_word[q]+1:idx_word[q+1]]])
         if s is None:
             s = ''
         re_search = re.search('\[.*?\].*?\[.*?\](.*?)\[.*?\]', s)
         if re_search is None:
+            del words[q]
             continue
         s = re_search.group(1)
+        # делим то, что вытаскивают регулярки из скобок по пробелу,
+        # чтобы дальше работать с кусками текста
         s_list = s.split(' ')
+        # начало и конец будущего толкования
         start = 0
         end = 0
+        # это чтобы отличать start с индексом 0 от неизмененного старта, это нужно дальше
         st_ch = 0
+        # так убираются все штуки типа толкование(пояснение). Ср. второе
+        for i in s_list:
+            if i.endswith(').'):
+                try:
+                    s_list = s_list[0:s_list.index(i)+2]
+                except:
+                    continue
+        # по-разному работаем с многозначными и однозначными словами
         if '2)' and '2.' not in s_list:
             for i in range(len(s_list)-1):
                 for d in dialect:
@@ -112,6 +133,7 @@ def parsing(BATCH_SIZE, dsl_dict, short, dialect):
                     if s_list[i].startswith(l):
                         start = i
                         st_ch = 1
+            # убираем ссылки
             if 'см.' in s_list:
                 end = s_list.index('см.')
         if '2)' in s_list or '2.' in s_list:
@@ -133,22 +155,25 @@ def parsing(BATCH_SIZE, dsl_dict, short, dialect):
                     end = s_list.index('см.')
 
         result = []
-
+        # если никаких условий для сдвига старта нет, нам нужно брать все с
+        # начала
         if start == 0 and st_ch == 0:
             start = -1
+        # если конец не 0 и старт меньше конца, присоединяем все в интервале
         if end != 0:
             if start > end:
                 start = -1
             for i in range(start+1, end):
                 result.append(s_list[i])
         else:
+        # если конец 0, то есть нет никаких условий, то просто берем все
             for i in range(start+1, len(s_list)-1):
                 result.append(s_list[i])
-
+        # убирает цифры и случайные обрывки скобок в начале арэн)
         for r in result:
             if r.endswith(')'):
                 result = result[result.index(r)+1:]
-
+        
         info = ' '.join(result)
         info = info.split(';')[0]
         if info.startswith('3 '):
@@ -157,13 +182,20 @@ def parsing(BATCH_SIZE, dsl_dict, short, dialect):
             info = info.split('1.')[1]
         if info.endswith('.'):
             info = info.split('.')[0]
-
-        infos.append(re.split('[-\s\(\),\.\?̄\'!]', info.strip())[0])
+            
+        info = info.strip()
+        # закоментировала чтобы полные толкования записывались
+        # info = re.split('[\s(),.?̄\'!/]', info)[0]
+        if info != '' and info != ' ' and info is not None:
+            infos.append(info)
+        # если вдруг с толкованием какая-то ошибка
+        else:
+            infos.append('failed')
 
         if 'межд.' in s_list:
             pos = 'ij'
         else:
-            if words[len(infos)-1].endswith('-мӣ'):
+            if words[len(infos)-1].endswith('-мӣ') or words[len(infos)-1].endswith('-ми'):
                 pos = 'v'
             else:
                 pos = "nothing"
@@ -175,22 +207,30 @@ def parsing(BATCH_SIZE, dsl_dict, short, dialect):
         if pos_list[j] == "nothing":
             work_list.append(j)
     work_list = list(chunk(work_list, BATCH_SIZE))
+    sym = "0123456789.,?!…:;()[]-_|/\"'«»*{}<>@#$%^&№"
     for el_index, el in enumerate(work_list):
         text = []
         for q in el:
-            text.append(infos[q].split(' ')[0])
+            ans = ''
+            t = infos[q].split(' ')[0]
+            # чистим для майстема
+            for letter in t:
+                if letter not in sym:
+                    ans += letter
+            if ans != '' and ans != ' ':
+                text.append(ans)
+            else:
+                text.append('failed')
         text_joined = ' '.join(text)
         pos_l = detect_pos(m, text_joined)
-        print(el_index, text_joined, pos_l, len(el), len(pos_l))
+        # print(el_index, text_joined, pos_l, len(el), len(pos_l))
         for p in range(len(pos_l)):
             pos_list[el[p]] = pos_l[p]
 
     print('pos_processed', datetime.now())
 
-    print(len(words), len(infos), len(pos_list))
     for i in range(0, min(len(words)-1, MAX_NUM)):
         final_list.append(words[i] + '\t' + infos[i] + '\t' + pos_list[i])
-
 
     return final_list
 
@@ -203,14 +243,12 @@ def saving(final_list, filename):
 
 def main():
 
-    BATCH_SIZE = 500
-
     check_params(sys.argv)
 
     logging.basicConfig(filename="logfile.log", level=logging.ERROR)
 
     dsl_dict, short, dialect = files(sys.argv[1])
-    saving(parsing(BATCH_SIZE, dsl_dict, short, dialect), sys.argv[2])
+    saving(parsing(dsl_dict, short, dialect), sys.argv[2])
 
 
 if __name__ == '__main__':
