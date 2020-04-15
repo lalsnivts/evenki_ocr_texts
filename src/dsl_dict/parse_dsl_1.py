@@ -53,6 +53,8 @@ def detect_pos(m, string):
                 pos_l.append('v')
             elif pos.startswith('S'):
                 pos_l.append('n')
+            elif pos.startswith('ADV'):
+                pos_l.append('adv')
             elif pos.startswith('A'):
                 pos_l.append('adj')
             elif pos.startswith('PART'):
